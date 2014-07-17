@@ -13,45 +13,36 @@
  *
  */
 
-class sharedMemory {
-    /** @var null|resource the semaphore */
-    protected $sem=null;
+require_once ('semaphore.cls.php');
+
+class sharedMemory extends semaphore{
     /** @var null|resource the memory-segment */
     protected $mem=null;
     /** @var string[] name-index-associations */
     protected $nameToKey=array();
-    /** @var null|int ipc-v-key for memory-block and semaphore */
-    protected $key=null;
 
     public function beginTransaction() {
         // sem_acquire blocks until the segment is accessible
-        if(!sem_acquire($this->sem))
-            throw new Exception('Could not acquire semaphore');
+        $this->lock();
         return $this;
     }
     public function endTransaction() {
-        if(!sem_release($this->sem))
-            throw new Exception('Could not release semaphore');
+        $this->unlock();
         return $this;
     }
     public function __construct($size=10000) {
-        if(!$this->sem=sem_get($this->getKey()))
-            throw new Exception('Could not get semaphore');
-        $this->mem=shm_attach($this->getKey(),$size,0640);
+        parent::__construct(1,0640);
+        if(!$this->mem=shm_attach($this->getKey(),$size,0640))
+            throw new Exception('could not attach to shared Memory');
         // store index in first place
         $this->nameToKey[]='';
         // here_we'll save the number of instances
         // $this->nameToKey[]='';
         $this->writeIndex();
     }
-    public function getKey() {
-        return isset($this->key)?$this->key:$this->key=ftok(tempnam('/tmp','SEM'),'a');
-    }
     public function remove() {
-        $rShm=shm_remove($this->mem);
-        $rSem=sem_remove($this->sem);
-        if(!($rSem&&$rShm))
-            throw new Exception('could not remove shared memory segment completely.');
+        shm_remove($this->mem);
+        parent::remove();
     }
     protected function refreshIndex() {
         $this->nameToKey=$this->getVar(0);
@@ -113,33 +104,48 @@ class sharedMemory {
         `echo $bytes >/proc/sys/kernel/shmmax`;
         return $bytes==static::getMaxSize();
     }
+
+    /**
+     * transact with the memory by callback
+     *
+     * locks the memory before call and releases afterwards
+     * @param $cb callable
+     * @return static
+     */
     public function transact($cb) {
         $this->beginTransaction();
         $cb($this);
         $this->endTransaction();
         return $this;
     }
-    public function transactVar($varname,$cb) {
-        return $this->transact(function($m)use($varname,$cb){
-            $m->$varname=$cb($m->$varname);
-        });
-    }
-    public function __sleep() {
-        return array('key');
-    }
     public function __wakeup() {
-        print_r($this);
-        if(!$this->sem=sem_get($this->getKey()))
-            throw new Exception('Could not get semaphore');
+        parent::__wakeup();
         $this->mem=shm_attach($this->getKey(),1,0777);
         $this->refreshIndex();
+    }
+
+    /**
+     * transact with a memory-variable by callback
+     * @param $var string the variable name
+     * @param $cb callback return a new value or modify it by reference; return will be preferred for write back
+     * @return static
+     */
+    public function transactVar($var,$cb) {
+        return $this->transact(function($m)use($var,$cb){
+            $val = $ref = $m->$var;
+            $ret=$cb($ref);
+            if($ret!==null) return $m->$var=$ret;
+            if($ref!=$val) return $m->$var = $ref;
+        });
     }
 }
 
 /** tests **/
 /**
 
+
 $mem=new sharedMemory(sharedMemory::getMaxSize());
+// the way to do it in parallel processes
 $mem->beginTransaction();
 $mem->myVar='i am in the shared memory now';
 $mem->endTransaction();
@@ -147,19 +153,31 @@ $mem->endTransaction();
 // this won't work:
 $mem->arr = array();
 $mem->arr[] = 'value'; // magic-issue about arrays
-print_r($mem);
-unset($mem->arr);
+print_r($mem->arr);
 
-// but this will
+// but this will as it's an object
 $mem->nextStorage = new sharedMemory();
 $mem->nextStorage->remove();
 
+// change value by cb using a return value
 $mem->transactVar('myVar',function($value){
 	if(stripos($value,'shared memory')) return 'i was changed by a callback';
-	// warning: you have to return something; else you would set the variable to null!
 	return $value;
 });
+// change value by cb using a reference
 echo $mem->myVar.PHP_EOL;
+$mem->transactVar('myVar',function(&$val){
+    $val=10;
+    // returning something<>10 here would set the value to that
+});
+echo $mem->myVar.PHP_EOL;
+
+// get instance by key
+$mem2=sharedMemory::load($mem->getKey());
+print_r($mem2->arr);
+unset($mem2->arr);
+
+// free the memory
 $mem->remove();
 
-*/
+/**/
