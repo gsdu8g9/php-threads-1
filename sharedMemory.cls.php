@@ -135,3 +135,31 @@ class sharedMemory {
         $this->refreshIndex();
     }
 }
+
+/** tests **/
+/**
+
+$mem=new sharedMemory(sharedMemory::getMaxSize());
+$mem->beginTransaction();
+$mem->myVar='i am in the shared memory now';
+$mem->endTransaction();
+
+// this won't work:
+$mem->arr = array();
+$mem->arr[] = 'value'; // magic-issue about arrays
+print_r($mem);
+unset($mem->arr);
+
+// but this will
+$mem->nextStorage = new sharedMemory();
+$mem->nextStorage->remove();
+
+$mem->transactVar('myVar',function($value){
+	if(stripos($value,'shared memory')) return 'i was changed by a callback';
+	// warning: you have to return something; else you would set the variable to null!
+	return $value;
+});
+echo $mem->myVar.PHP_EOL;
+$mem->remove();
+
+*/

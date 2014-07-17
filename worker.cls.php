@@ -117,10 +117,8 @@ class worker {
     }*/
 }
 
-/*
- */
 // tests
-
+/* 
 include "sharedMemory.cls.php";
 
 $worker = new worker(10);
