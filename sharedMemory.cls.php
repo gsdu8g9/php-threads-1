@@ -90,6 +90,12 @@ class sharedMemory extends semaphore{
     public static function getMaxSize() {
         return (int)`cat /proc/sys/kernel/shmmax`;
     }
+    public static function MiB($count) {
+        return $count<<20;
+    }
+    public static function KiB($count) {
+        return $count<<10;
+    }
 
     /**
      * set the maximum size for a shared memory segment
