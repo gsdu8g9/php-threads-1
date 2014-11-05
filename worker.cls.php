@@ -17,13 +17,13 @@ class worker {
 
     /**
      * create a child process
-     * @return bool true on parent process; false on child
+     * @return int @see pcntl_fork()
      * @throws Exception
      */
     protected function fork() {
         $pid=pcntl_fork();
         if(-1==$pid) throw new Exception ("Could not fork process.");
-        return (bool)$pid;
+        return $pid;
     }
 
     /**
@@ -39,7 +39,8 @@ class worker {
                 call_user_func_array($cb,$args);
             });
         }
-        $this->work()->wait();
+        return $this;
+        //$this->work()->wait();
     }
 
     /**
@@ -109,7 +110,7 @@ class worker {
      * @return bool
      */
     public function hasJobs() {
-        return (bool)count($this->queue);
+        return count($this->queue);
     }
     /*
     public function getNumFinished() {
