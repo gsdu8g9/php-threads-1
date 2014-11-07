@@ -17,8 +17,8 @@ class worker {
 
     /**
      * create a child process
-     * @return int @see pcntl_fork()
-     * @throws Exception
+     * @return int @see pcntl_fork(); 0 for child-thread; >0 for main representing the pid of the child
+     * @throws Exception if fork failed
      */
     protected function fork() {
         $pid=pcntl_fork();
@@ -31,6 +31,7 @@ class worker {
      *
      * @param $list array list to map a callback with
      * @param $cb callable function to accept $value and $key in this order
+     * @return self
      */
     public function map($list,$cb) {
         foreach ($list as $k=>$v) {
@@ -47,15 +48,14 @@ class worker {
      * create a new working queue
      * @param int $threads number of threads; 0 means no thread limit;
      */
-    public function __construct($threads=0)
-    {
+    public function __construct($threads=0) {
         $this->maxThreads = $threads;
     }
 
     /**
      * @param $cb callable action to perform
      * @param bool $start start immediately
-     * @return \static
+     * @return self
      */
     public function enqueue($cb,$start=false) {
         $this->queue[]=$cb;
@@ -66,7 +66,7 @@ class worker {
     /**
      * start working the queue
      * @throws Exception
-     * @return \static
+     * @return self
      * @param bool $wait wait to finish or not; eg. only start
      */
     public function work($wait=true) {
@@ -95,7 +95,7 @@ class worker {
 
     /**
      * wait for all jobs to finish
-     * @return \static
+     * @return self
      */
     public function wait() {
         while($this->working--) {
@@ -107,7 +107,8 @@ class worker {
     }
 
     /**
-     * @return bool
+     * retrieve the number of queued jobs
+     * @return bool|int
      */
     public function hasJobs() {
         return count($this->queue);
