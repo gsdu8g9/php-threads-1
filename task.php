@@ -1,10 +1,4 @@
 <?php
-/**
- * Created by PhpStorm.
- * User: abewm
- * Date: 11/10/14
- * Time: 8:56 AM
- */
 
 class taskList {
     /**
@@ -36,8 +30,8 @@ class taskList {
      * @return self
      */
     function map($list,$cb,$arg=null,$arg=null) {
+        $moreArgs=array_slice(func_get_args(),2);
         foreach ($list as $v) {
-            $moreArgs=array_slice(func_get_args(),2);
             $args=array_merge(array($v),$moreArgs);
             $this->enqueue(function()use($args,$cb) {
                 call_user_func_array($cb,$args);
