@@ -1,3 +1,4 @@
+#!/usr/bin/env php
 <?php
 
 class taskList {
@@ -92,7 +93,7 @@ class taskList {
      * @return bool
      */
     protected function mayStartTask() {
-        return $this->hasJobs()&&$this->maxThreads&&$this->maxThreads<$this->hasActive();
+        return $this->hasJobs()&&($this->maxThreads>$this->hasActive()||!$this->maxThreads);
     }
 
     /**
@@ -125,6 +126,7 @@ class taskList {
         $this->queue=array();
         return $this;
     }
+
 }
 
 /**
@@ -190,6 +192,14 @@ class task {
     }
 
     /**
+     * @return int the last state returned by pcntl_wait...
+     */
+    function waitEnd() {
+        $this->wait(null);
+        return $this->state;
+    }
+
+    /**
      * @param callable $action
      */
     function __construct($action) {
@@ -214,3 +224,24 @@ class task {
         return $this->$var;
     }
 }
+
+/*
+    $testarr=array();
+    for($i=0;$i<100;$i++) { $testarr[]=rand(5,10)-5; }
+    $tasks=new taskList(0,100000);
+    $tasks->map($testarr,function($t){
+        sleep($t);
+    });
+    if(@$argv[1]) {
+        echo "working in background...\n";
+        $thread=$tasks->workParallel();
+        echo "this text is printed outside the task loop as it runs.\n";
+        $thread->waitEnd();
+    } else {
+        echo "working in foreground...\n";
+        $tasks->work();
+        echo "this text will be printed after the queue has finished.\n";
+    }
+    echo "done\n";
+}
+*/
